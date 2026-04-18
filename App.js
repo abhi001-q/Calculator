@@ -1,244 +1,354 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, StatusBar } from 'react-native';
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import {
+  useFonts,
+  SpaceGrotesk_500Medium,
+} from "@expo-google-fonts/space-grotesk";
+import { Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
+const operators = ["+", "-", "×", "÷", "%"];
 
 const App = () => {
-  const [display, setDisplay] = useState('0.');
-  const [expression, setExpression] = useState('');
+  const [display, setDisplay] = useState("0");
+  const [expression, setExpression] = useState("");
   const [isResult, setIsResult] = useState(false);
 
+  console.log("App loaded properly!");
+
+  const [fontsLoaded] = useFonts({
+    SpaceGrotesk_500Medium,
+    Inter_400Regular,
+    Inter_700Bold,
+  });
+
+  if (!fontsLoaded) {
+    return null;
+  }
+
+  const endsWithOperator = (value) => operators.includes(value.slice(-1));
+
   const handlePress = (value) => {
-    if (value === 'AC') {
+    if (value === "AC") {
       clear();
       return;
     }
-    if (value === '=') {
+
+    if (value === "=") {
       calculate();
       return;
     }
-    if (['check_prev', 'check_next', 'correct', 'gt', 'mu'].includes(value)) {
-      // Ignore for now
+
+    if (
+      [
+        "check_prev",
+        "check_next",
+        "correct",
+        "gt",
+        "mu",
+        "double_check",
+      ].includes(value)
+    ) {
       return;
     }
-    if (isResult) {
-      setDisplay(value);
-      setExpression(value);
-      setIsResult(false);
-    } else {
-      if (['+', '-', '×', '÷', '%'].includes(value)) {
-        // If last is operator, replace
-        if (['+', '-', '×', '÷', '%'].includes(expression.slice(-1))) {
-          setExpression(expression.slice(0, -1) + value);
-        } else {
-          setExpression(expression + value);
-        }
+
+    if (display.length >= 16 && !operators.includes(value)) {
+      return;
+    }
+
+    if (isResult && !operators.includes(value)) {
+      if (value === ".") {
+        setExpression("0.");
+        setDisplay("0.");
+      } else {
+        setExpression(value);
         setDisplay(value);
-      } else if (value === '.') {
-        // Handle decimal
-        const lastNumber = expression.split(/[\+\-\×\÷\%]/).pop();
-        if (!lastNumber.includes('.')) {
-          setExpression(expression + value);
-          setDisplay(display + value);
-        }
+      }
+      setIsResult(false);
+      return;
+    }
+
+    if (operators.includes(value)) {
+      if (expression === "" && value !== "-") {
+        return;
+      }
+      if (endsWithOperator(expression)) {
+        setExpression(expression.slice(0, -1) + value);
       } else {
         setExpression(expression + value);
-        setDisplay(display === '0.' ? value : display + value);
       }
+      setDisplay(value);
+      return;
     }
+
+    if (value === ".") {
+      if (expression === "" || endsWithOperator(expression)) {
+        setExpression(expression + "0.");
+        setDisplay("0.");
+        return;
+      }
+
+      const lastNumber = expression.split(/[\+\-\×\÷\%]/).pop();
+      if (!lastNumber.includes(".")) {
+        setExpression(expression + ".");
+        setDisplay(endsWithOperator(display) ? "0." : display + ".");
+      }
+      return;
+    }
+
+    if (value === "00") {
+      if (
+        expression === "" ||
+        endsWithOperator(expression) ||
+        display === "0"
+      ) {
+        setExpression("0");
+        setDisplay("0");
+      } else {
+        setExpression(expression + "00");
+        setDisplay(display + "00");
+      }
+      return;
+    }
+
+    const newDisplay =
+      display === "0" || operators.includes(display) ? value : display + value;
+    const newExpression = expression === "0" ? value : expression + value;
+    setExpression(newExpression);
+    setDisplay(newDisplay);
   };
 
   const calculate = () => {
-    try {
-      let expr = expression.replace(/×/g, '*').replace(/÷/g, '/');
-      let result = eval(expr);
-      if (isNaN(result) || !isFinite(result)) {
-        setDisplay('Error');
-      } else {
-        setDisplay(result.toString());
-      }
-      setIsResult(true);
-    } catch {
-      setDisplay('Error');
-      setIsResult(true);
+    if (!expression) {
+      return;
     }
+
+    let expr = expression.replace(/×/g, "*").replace(/÷/g, "/");
+    if (endsWithOperator(expr)) {
+      expr = expr.slice(0, -1);
+    }
+
+    try {
+      let result = eval(expr);
+      if (typeof result === "number" && isFinite(result)) {
+        const formatted = parseFloat(result.toFixed(10)).toString();
+        setDisplay(formatted);
+        setExpression(formatted);
+      } else {
+        setDisplay("Error");
+        setExpression("");
+      }
+    } catch {
+      setDisplay("Error");
+      setExpression("");
+    }
+
+    setIsResult(true);
   };
 
   const clear = () => {
-    setDisplay('0.');
-    setExpression('');
+    setDisplay("0");
+    setExpression("");
     setIsResult(false);
   };
 
-  const buttons = [
-    { label: 'Check\nPrev', value: 'check_prev', style: styles.functionButton, textStyle: styles.functionText },
-    { label: 'Check\nNext', value: 'check_next', style: styles.functionButton, textStyle: styles.functionText },
-    { label: 'CORRECT', value: 'correct', style: styles.correctButton, textStyle: styles.correctText },
-    { label: 'ON/AC', value: 'AC', style: styles.acButton, textStyle: styles.acText },
-    { label: 'GT', value: 'gt', style: styles.operatorButton, textStyle: styles.operatorText },
-    { label: 'MU', value: 'mu', style: styles.operatorButton, textStyle: styles.operatorText },
-    { label: '%', value: '%', style: styles.operatorButton, textStyle: styles.operatorText },
-    { label: '÷', value: '÷', style: styles.operatorButton, textStyle: styles.operatorText },
-    { label: '7', value: '7', style: styles.numberButton, textStyle: styles.numberText },
-    { label: '8', value: '8', style: styles.numberButton, textStyle: styles.numberText },
-    { label: '9', value: '9', style: styles.numberButton, textStyle: styles.numberText },
-    { label: '×', value: '×', style: styles.operatorButton, textStyle: styles.operatorText },
-    { label: '4', value: '4', style: styles.numberButton, textStyle: styles.numberText },
-    { label: '5', value: '5', style: styles.numberButton, textStyle: styles.numberText },
-    { label: '6', value: '6', style: styles.numberButton, textStyle: styles.numberText },
-    { label: '-', value: '-', style: styles.operatorButton, textStyle: styles.operatorText },
-    { label: '1', value: '1', style: styles.numberButton, textStyle: styles.numberText },
-    { label: '2', value: '2', style: styles.numberButton, textStyle: styles.numberText },
-    { label: '3', value: '3', style: styles.numberButton, textStyle: styles.numberText },
-    { label: '+', value: '+', style: styles.plusButton, textStyle: styles.operatorText },
-    { label: '0', value: '0', style: styles.numberButton, textStyle: styles.numberText },
-    { label: '00', value: '00', style: styles.numberButton, textStyle: styles.numberText },
-    { label: '.', value: '.', style: styles.numberButton, textStyle: styles.numberText },
-    { label: 'Double Check', value: 'double_check', style: styles.doubleCheckButton, textStyle: styles.doubleCheckText },
-    { label: '=', value: '=', style: styles.equalsButton, textStyle: styles.equalsText },
+  const buttonProps = {
+    function: {
+      style: styles.functionButton,
+      textStyle: styles.functionText,
+    },
+    correct: {
+      style: styles.correctButton,
+      textStyle: styles.correctText,
+    },
+    ac: {
+      style: styles.acButton,
+      textStyle: styles.acText,
+    },
+    operator: {
+      style: styles.operatorButton,
+      textStyle: styles.operatorText,
+    },
+    number: {
+      style: styles.numberButton,
+      textStyle: styles.numberText,
+    },
+    equals: {
+      style: styles.equalsButton,
+      textStyle: styles.equalsText,
+    },
+  };
+
+  const topRow1 = [
+    { label: "Check\nPrev", value: "check_prev", ...buttonProps.function },
+    { label: "Check\nNext", value: "check_next", ...buttonProps.function },
+    { label: "CORRECT", value: "correct", ...buttonProps.correct },
+    { label: "ON/AC", value: "AC", ...buttonProps.ac },
+  ];
+
+  const topRow2 = [
+    { label: "GT", value: "gt", ...buttonProps.operator },
+    { label: "MU", value: "mu", ...buttonProps.operator },
+    { label: "%", value: "%", ...buttonProps.operator },
+    { label: "÷", value: "÷", ...buttonProps.operator },
+  ];
+
+  const numberRows = [
+    [
+      { label: "7", value: "7", ...buttonProps.number },
+      { label: "8", value: "8", ...buttonProps.number },
+      { label: "9", value: "9", ...buttonProps.number },
+      { label: "×", value: "×", ...buttonProps.operator },
+    ],
+    [
+      { label: "4", value: "4", ...buttonProps.number },
+      { label: "5", value: "5", ...buttonProps.number },
+      { label: "6", value: "6", ...buttonProps.number },
+      { label: "-", value: "-", ...buttonProps.operator },
+    ],
+    [
+      { label: "1", value: "1", ...buttonProps.number },
+      { label: "2", value: "2", ...buttonProps.number },
+      { label: "3", value: "3", ...buttonProps.number },
+      { type: "placeholder" },
+    ],
+    [
+      { label: "0", value: "0", ...buttonProps.number },
+      { label: "00", value: "00", ...buttonProps.number },
+      { label: ".", value: ".", ...buttonProps.number },
+      { type: "placeholder" },
+    ],
   ];
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Text style={styles.icon}>🧠</Text>
           <Text style={styles.title}>CITIZEN CT-512</Text>
         </View>
         <View style={styles.headerRight}>
-          <Text style={styles.subtitle}>ELECTRONIC CALCULATOR</Text>
-          <Text style={styles.settingsIcon}>⚙️</Text>
+          <Text style={styles.subtitle}>SMART CALCULATOR</Text>
         </View>
       </View>
-      {/* Main */}
+
       <View style={styles.main}>
-        {/* Solar Panel */}
-        <View style={styles.solarPanel}>
-          <View style={styles.solarStrip}></View>
-        </View>
-        {/* Display */}
         <View style={styles.display}>
           <View style={styles.displayLabels}>
-            <Text style={styles.label}>LARGE DISPLAY</Text>
-            <Text style={styles.label}>AUTO REPLAY</Text>
+            <Text style={styles.label}>MADE BY ABHISHEK</Text>
           </View>
-          <Text style={styles.displayText}>{display}</Text>
+          <Text
+            style={styles.displayText}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {display}
+          </Text>
         </View>
-        {/* Keypad */}
+
         <View style={styles.keypad}>
-          {buttons.slice(0, 4).map((btn, index) => (
-            <TouchableOpacity
-              key={index}
-              style={[styles.button, btn.style]}
-              onPress={() => handlePress(btn.value)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.buttonText, btn.textStyle]}>{btn.label}</Text>
-            </TouchableOpacity>
+          <View style={styles.row}>
+            {topRow1.map((btn, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[styles.button, btn.style]}
+                onPress={() => handlePress(btn.value)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.buttonText, btn.textStyle]}>
+                  {btn.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.row}>
+            {topRow2.map((btn, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[styles.button, btn.style]}
+                onPress={() => handlePress(btn.value)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.buttonText, btn.textStyle]}>
+                  {btn.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {numberRows.map((row, rowIndex) => (
+            <View style={styles.row} key={rowIndex}>
+              {row.map((btn, index) => {
+                if (btn.type === "placeholder") {
+                  return (
+                    <View
+                      key={index}
+                      style={[styles.button, styles.placeholderButton]}
+                    />
+                  );
+                }
+
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[styles.button, btn.style]}
+                    onPress={() => handlePress(btn.value)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.buttonText, btn.textStyle]}>
+                      {btn.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           ))}
-          {buttons.slice(4, 8).map((btn, index) => (
-            <TouchableOpacity
-              key={index + 4}
-              style={[styles.button, btn.style]}
-              onPress={() => handlePress(btn.value)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.buttonText, btn.textStyle]}>{btn.label}</Text>
-            </TouchableOpacity>
-          ))}
-          {buttons.slice(8, 12).map((btn, index) => (
-            <TouchableOpacity
-              key={index + 8}
-              style={[styles.button, btn.style]}
-              onPress={() => handlePress(btn.value)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.buttonText, btn.textStyle]}>{btn.label}</Text>
-            </TouchableOpacity>
-          ))}
-          {buttons.slice(12, 16).map((btn, index) => (
-            <TouchableOpacity
-              key={index + 12}
-              style={[styles.button, btn.style]}
-              onPress={() => handlePress(btn.value)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.buttonText, btn.textStyle]}>{btn.label}</Text>
-            </TouchableOpacity>
-          ))}
-          {buttons.slice(16, 19).map((btn, index) => (
-            <TouchableOpacity
-              key={index + 16}
-              style={[styles.button, btn.style]}
-              onPress={() => handlePress(btn.value)}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.buttonText, btn.textStyle]}>{btn.label}</Text>
-            </TouchableOpacity>
-          ))}
-          {/* Plus button spanning */}
           <TouchableOpacity
-            style={styles.plusButton}
-            onPress={() => handlePress('+')}
+            style={styles.plusAbsolute}
+            onPress={() => handlePress("+")}
             activeOpacity={0.7}
           >
             <Text style={styles.operatorText}>+</Text>
           </TouchableOpacity>
-          {buttons.slice(19, 22).map((btn, index) => (
+
+          <View style={styles.row}>
             <TouchableOpacity
-              key={index + 19}
-              style={[styles.button, btn.style]}
-              onPress={() => handlePress(btn.value)}
+              style={[
+                styles.button,
+                styles.bottomWideButton,
+                styles.numberButton,
+              ]}
+              onPress={() => handlePress("double_check")}
               activeOpacity={0.7}
             >
-              <Text style={[styles.buttonText, btn.textStyle]}>{btn.label}</Text>
+              <Text style={[styles.buttonText, styles.numberText]}>
+                Double Check
+              </Text>
             </TouchableOpacity>
-          ))}
-          {/* Double Check spanning 3 columns */}
-          <TouchableOpacity
-            style={styles.doubleCheckButton}
-            onPress={() => handlePress('double_check')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.doubleCheckText}>Double Check</Text>
-          </TouchableOpacity>
-          {/* Equals */}
-          <TouchableOpacity
-            style={styles.equalsButton}
-            onPress={() => handlePress('=')}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.equalsText}>=</Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, styles.equalsButton]}
+              onPress={() => handlePress("=")}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.equalsText}>=</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        {/* Chassis Markings */}
+
         <View style={styles.chassis}>
           <Text style={styles.chassisText}>120 Steps Check & Correct</Text>
           <View style={styles.dots}>
-            <View style={styles.dot}></View>
-            <View style={styles.dot}></View>
+            <View style={styles.dot} />
+            <View style={styles.dot} />
           </View>
-        </View>
-      </View>
-      {/* Bottom Nav */}
-      <View style={styles.bottomNav}>
-        <View style={styles.navItemActive}>
-          <Text style={styles.navIcon}>🧮</Text>
-          <Text style={styles.navText}>CALC</Text>
-        </View>
-        <View style={styles.navItem}>
-          <Text style={styles.navIcon}>📜</Text>
-          <Text style={styles.navText}>LOGS</Text>
-        </View>
-        <View style={styles.navItem}>
-          <Text style={styles.navIcon}>🔬</Text>
-          <Text style={styles.navText}>LAB</Text>
-        </View>
-        <View style={styles.navItem}>
-          <Text style={styles.navIcon}>📏</Text>
-          <Text style={styles.navText}>UNITS</Text>
         </View>
       </View>
     </View>
@@ -248,284 +358,230 @@ const App = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#131313',
+    backgroundColor: "#131313",
+    paddingTop: 48,
+    paddingBottom: 24,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingVertical: 12,
-    backgroundColor: '#131313',
   },
   headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   icon: {
     fontSize: 20,
-    color: '#5ddbc2',
+    color: "#5ddbc2",
   },
   title: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#5ddbc2',
+    fontFamily: "SpaceGrotesk_500Medium",
+    fontSize: 18,
+    color: "#5ddbc2",
     letterSpacing: 1,
   },
   headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 16,
   },
   subtitle: {
+    fontFamily: "Inter_400Regular",
     fontSize: 10,
-    fontWeight: '900',
-    color: '#9ca3af',
+    color: "#9ca3af",
     letterSpacing: 2,
+    fontWeight: "700",
   },
   settingsIcon: {
     fontSize: 20,
-    color: '#6b7280',
+    color: "#6b7280",
   },
   main: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
   },
   solarPanel: {
-    alignSelf: 'flex-end',
+    alignSelf: "flex-end",
     marginRight: 8,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   solarStrip: {
-    width: 96,
-    height: 24,
-    backgroundColor: '#0e0e0e',
+    width: 92,
+    height: 22,
+    backgroundColor: "#0e0e0e",
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: "rgba(255,255,255,0.05)",
   },
   display: {
-    width: '100%',
-    minHeight: 120,
-    backgroundColor: '#0e0e0e',
-    borderRadius: 8,
+    width: "100%",
+    minHeight: 180,
+    backgroundColor: "#0e0e0e",
+    borderRadius: 14,
     padding: 24,
-    justifyContent: 'flex-end',
-    alignItems: 'flex-end',
-    shadowColor: '#000',
+    justifyContent: "flex-end",
+    alignItems: "flex-end",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.8,
     shadowRadius: 12,
     elevation: 8,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-    marginBottom: 32,
+    borderColor: "rgba(255,255,255,0.05)",
+    marginBottom: 28,
   },
   displayLabels: {
-    position: 'absolute',
-    top: 8,
+    position: "absolute",
+    top: 12,
     left: 16,
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 16,
   },
   label: {
+    fontFamily: "Inter_400Regular",
     fontSize: 10,
-    fontWeight: 'bold',
-    color: 'rgba(255,255,255,0.4)',
+    color: "rgba(255,255,255,0.4)",
     letterSpacing: 1,
+    fontWeight: "700",
   },
   displayText: {
-    fontSize: 48,
-    color: '#5ddbc2',
-    fontWeight: '300',
+    fontFamily: "SpaceGrotesk_500Medium",
+    fontSize: 68,
+    color: "#5ddbc2",
     letterSpacing: -1,
   },
   keypad: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    width: width * 0.9,
-    maxWidth: 400,
+    position: "relative",
+    width: width * 0.94,
+    maxWidth: 440,
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 12,
   },
   button: {
-    width: (width * 0.9 - 36) / 4,
-    height: 56,
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
+    width: (width * 0.94 - 36) / 4,
+    height: 64,
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 2,
   },
   buttonText: {
-    textAlign: 'center',
+    textAlign: "center",
+    fontFamily: "Inter_400Regular",
+    fontWeight: "700",
+    color: "#e5e2e1",
   },
   functionButton: {
-    backgroundColor: '#0162cf',
-    height: 56,
+    backgroundColor: "#0162cf",
   },
   functionText: {
-    color: '#dae4ff',
-    fontSize: 10,
-    fontWeight: 'bold',
+    color: "#dae4ff",
+    fontSize: 12,
     letterSpacing: 1,
   },
   correctButton: {
-    backgroundColor: '#2a2a2a',
-    height: 56,
+    backgroundColor: "#2a2a2a",
   },
   correctText: {
-    color: '#e5e2e1',
+    color: "#e5e2e1",
     fontSize: 14,
-    fontWeight: 'bold',
   },
   acButton: {
-    backgroundColor: '#5ddbc2',
-    height: 56,
+    backgroundColor: "#5ddbc2",
   },
   acText: {
-    color: '#00382f',
+    color: "#00382f",
     fontSize: 14,
-    fontWeight: '900',
   },
   operatorButton: {
-    backgroundColor: '#353534',
-    height: 56,
+    backgroundColor: "#353534",
   },
   operatorText: {
-    color: '#e5e2e1',
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontFamily: "Inter_700Bold",
+    fontSize: 24,
+    color: "#e5e2e1",
   },
   numberButton: {
-    backgroundColor: '#2a2a2a',
-    height: 64,
+    backgroundColor: "#2a2a2a",
   },
   numberText: {
-    color: '#e5e2e1',
-    fontSize: 24,
-    fontWeight: '300',
+    fontFamily: "Inter_700Bold",
+    fontSize: 22,
+    color: "#e5e2e1",
   },
-  plusButton: {
-    position: 'absolute',
+  placeholderButton: {
+    backgroundColor: "transparent",
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  plusAbsolute: {
+    position: "absolute",
     right: 0,
-    top: 56 * 3 + 12 * 3 + 64 + 12, // adjust for rows
-    width: (width * 0.9 - 36) / 4,
-    height: 128,
-    backgroundColor: '#353534',
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
+    top: 304,
+    width: (width * 0.94 - 36) / 4,
+    height: 64 * 2 + 12,
+    backgroundColor: "#353534",
+    borderRadius: 14,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
     elevation: 2,
   },
-  doubleCheckButton: {
-    width: (width * 0.9 - 36) / 4 * 3 + 12,
-    height: 64,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+  plusTall: {
+    width: (width * 0.94 - 36) / 4,
+    height: 64 * 2 + 12,
   },
-  doubleCheckText: {
-    color: '#e5e2e1',
-    fontSize: 14,
-    fontWeight: 'bold',
-    letterSpacing: 1,
+  bottomWideButton: {
+    width: ((width * 0.94 - 36) / 4) * 3 + 24,
   },
   equalsButton: {
-    width: (width * 0.9 - 36) / 4,
-    height: 64,
-    backgroundColor: '#5ddbc2',
-    borderRadius: 4,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: "#5ddbc2",
   },
   equalsText: {
-    color: '#00382f',
+    fontFamily: "Inter_700Bold",
     fontSize: 24,
-    fontWeight: 'bold',
+    color: "#00382f",
   },
   chassis: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 4,
     marginTop: 16,
   },
   chassisText: {
+    fontFamily: "Inter_400Regular",
     fontSize: 9,
-    fontWeight: '900',
-    color: 'rgba(255,255,255,0.3)',
+    fontWeight: "700",
+    color: "rgba(255,255,255,0.3)",
     letterSpacing: 1,
-    textTransform: 'uppercase',
+    textTransform: "uppercase",
   },
   dots: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 4,
   },
   dot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#353534',
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: '#131313',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.05)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 10,
-  },
-  navItem: {
-    alignItems: 'center',
-    padding: 8,
-  },
-  navItemActive: {
-    alignItems: 'center',
-    padding: 8,
-    backgroundColor: '#2a2a2a',
-    borderRadius: 4,
-    shadowColor: '#fff',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 1,
-    elevation: 1,
-  },
-  navIcon: {
-    fontSize: 20,
-  },
-  navText: {
-    fontSize: 10,
-    fontWeight: '500',
-    marginTop: 4,
-    textTransform: 'uppercase',
+    backgroundColor: "#353534",
   },
 });
 
