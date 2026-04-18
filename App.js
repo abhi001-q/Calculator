@@ -1,10 +1,16 @@
 import React, { useState } from "react";
+// forcing a hot module reload...
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Dimensions,
+  SafeAreaView,
+  Platform,
+  StatusBar as RNStatusBar,
+  Modal,
+  ScrollView,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import {
@@ -20,6 +26,8 @@ const App = () => {
   const [display, setDisplay] = useState("0");
   const [expression, setExpression] = useState("");
   const [isResult, setIsResult] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [receiptVisible, setReceiptVisible] = useState(false);
 
   console.log("App loaded properly!");
 
@@ -46,6 +54,11 @@ const App = () => {
       return;
     }
 
+    if (value === "make_receipt") {
+      setReceiptVisible(true);
+      return;
+    }
+
     if (
       [
         "check_prev",
@@ -53,7 +66,6 @@ const App = () => {
         "correct",
         "gt",
         "mu",
-        "double_check",
       ].includes(value)
     ) {
       return;
@@ -139,6 +151,10 @@ const App = () => {
       let result = eval(expr);
       if (typeof result === "number" && isFinite(result)) {
         const formatted = parseFloat(result.toFixed(10)).toString();
+        
+        const historyItem = `${expression.replace(/\*/g, '×').replace(/\//g, '÷')} = ${formatted}`;
+        setHistory(prev => [...prev, historyItem]);
+
         setDisplay(formatted);
         setExpression(formatted);
       } else {
@@ -228,8 +244,35 @@ const App = () => {
   ];
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
+      <Modal visible={receiptVisible} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.receiptContainer}>
+            <Text style={styles.receiptHeader}>-- RECEIPT --</Text>
+            <ScrollView style={styles.receiptScroll}>
+              {history.length === 0 ? (
+                <Text style={styles.receiptTextEmpty}>No history yet.</Text>
+              ) : (
+                history.map((item, index) => (
+                  <Text key={index} style={styles.receiptText}>
+                    {item}
+                  </Text>
+                ))
+              )}
+            </ScrollView>
+            <View style={styles.receiptFooter}>
+              <TouchableOpacity onPress={() => setHistory([])} style={styles.clearBtn} activeOpacity={0.7}>
+                <Text style={styles.clearBtnText}>CLEAR</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => setReceiptVisible(false)} style={styles.closeBtn} activeOpacity={0.7}>
+                <Text style={styles.closeBtnText}>CLOSE</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.title}>CITIZEN CT-512</Text>
@@ -326,11 +369,11 @@ const App = () => {
                 styles.bottomWideButton,
                 styles.numberButton,
               ]}
-              onPress={() => handlePress("double_check")}
+              onPress={() => handlePress("make_receipt")}
               activeOpacity={0.7}
             >
               <Text style={[styles.buttonText, styles.numberText]}>
-                Double Check
+                Make Receipt
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -351,7 +394,7 @@ const App = () => {
           </View>
         </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -359,7 +402,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#131313",
-    paddingTop: 48,
+    paddingTop: Platform.OS === "android" ? RNStatusBar.currentHeight || 40 : 0,
     paddingBottom: 24,
   },
   header: {
@@ -582,6 +625,86 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
     backgroundColor: "#353534",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  receiptContainer: {
+    width: "100%",
+    backgroundColor: "#fffdf9",
+    borderRadius: 4,
+    maxHeight: "80%",
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+    borderStyle: "dashed",
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
+  },
+  receiptHeader: {
+    fontFamily: "SpaceGrotesk_500Medium",
+    fontSize: 22,
+    textAlign: "center",
+    marginBottom: 24,
+    color: "#111",
+    letterSpacing: 2,
+    paddingBottom: 16,
+    borderBottomWidth: 2,
+    borderBottomColor: "#eee",
+  },
+  receiptScroll: {
+    flexGrow: 0,
+    marginBottom: 24,
+  },
+  receiptTextEmpty: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 16,
+    color: "#888",
+    textAlign: "center",
+    paddingVertical: 20,
+  },
+  receiptText: {
+    fontFamily: "SpaceGrotesk_500Medium",
+    fontSize: 20,
+    color: "#333",
+    marginBottom: 12,
+    textAlign: "right",
+  },
+  receiptFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 2,
+    borderTopColor: "#eee",
+    paddingTop: 20,
+  },
+  clearBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: "#fee2e2",
+    borderRadius: 4,
+  },
+  clearBtnText: {
+    fontFamily: "Inter_700Bold",
+    color: "#b91c1c",
+    fontSize: 16,
+  },
+  closeBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: "#111",
+    borderRadius: 4,
+  },
+  closeBtnText: {
+    fontFamily: "Inter_700Bold",
+    color: "#fff",
+    fontSize: 16,
   },
 });
 
