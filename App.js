@@ -464,10 +464,10 @@ const styles = StyleSheet.create({
   },
   display: {
     width: "100%",
-    minHeight: 180,
+    minHeight: 110,
     backgroundColor: "#0e0e0e",
     borderRadius: 14,
-    padding: 24,
+    padding: 16,
     justifyContent: "flex-end",
     alignItems: "flex-end",
     shadowColor: "#000",
@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
   },
   displayText: {
     fontFamily: "SpaceGrotesk_500Medium",
-    fontSize: 68,
+    fontSize: 56,
     color: "#5ddbc2",
     letterSpacing: -1,
   },
