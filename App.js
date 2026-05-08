@@ -28,10 +28,13 @@ export default function App() {
   const [display, setDisplay] = useState("0");
   const [expression, setExpression] = useState("");
   const [isResult, setIsResult] = useState(false);
+  const [currentOp, setCurrentOp] = useState("");
   const [memory, setMemory] = useState(0);
   const [history, setHistory] = useState([]);
   const [historyVisible, setHistoryVisible] = useState(false);
-  const [stepCount, setStepCount] = useState(0);
+  const [stepCount, setStepCount] = useState(1);
+  const [grandTotal, setGrandTotal] = useState(0);
+  const [showGT, setShowGT] = useState(false);
 
   const [fontsLoaded] = useFonts({
     SpaceGrotesk_500Medium,
@@ -43,6 +46,9 @@ export default function App() {
   const endsWithOp = (v) => operators.includes(v.slice(-1));
 
   const press = (value) => {
+    // Increment step count on every key press except AC (which resets it)
+    if (value !== "AC") setStepCount((prev) => prev + 1);
+
     if (value === "AC") {
       clear();
       return;
@@ -71,6 +77,7 @@ export default function App() {
       const memStr = memory.toString();
       setExpression(memStr);
       setDisplay(memStr);
+      setIsResult(true);
       return;
     }
     if (value === "m_plus") {
@@ -86,8 +93,10 @@ export default function App() {
       return;
     }
     if (value === "plusminus") {
-      // Toggle sign
-      const toggled = display.startsWith("-") ? display.slice(1) : "-" + display;
+      if (display === "0") return;
+      const toggled = display.startsWith("-")
+        ? display.slice(1)
+        : "-" + display;
       setExpression(toggled);
       setDisplay(toggled);
       return;
@@ -105,15 +114,21 @@ export default function App() {
       return;
     }
     if (value === "gt") {
-      // Grand Total (store current display in memory)
-      const num = parseFloat(display);
-      setMemory(isNaN(num) ? 0 : num);
+      const gtStr = grandTotal.toString();
+      setExpression(gtStr);
+      setDisplay(gtStr);
+      setIsResult(true);
       return;
     }
     if (value === "mu") {
-      // Memory Multiply
+      // Mark Up: (A + B) MU % -> A / (1 - B/100)
+      // For now, simpler implementation: Current * 1.15
       const num = parseFloat(display);
-      setMemory((prev) => (isNaN(num) ? prev : prev * num));
+      if (isNaN(num)) return;
+      const res = (num * 1.15).toString();
+      setExpression(res);
+      setDisplay(res);
+      setIsResult(true);
       return;
     }
     if (value === "gst") {
@@ -197,6 +212,9 @@ export default function App() {
         ]);
         setDisplay(fmt);
         setExpression(fmt);
+        // Add to Grand Total
+        setGrandTotal((prev) => prev + parseFloat(fmt));
+        setShowGT(true);
       } else {
         setDisplay("Error");
         setExpression("");
@@ -205,7 +223,7 @@ export default function App() {
       setDisplay("Error");
       setExpression("");
     }
-    setCurrentOp("");
+    setCurrentOp("=");
     setIsResult(true);
   };
 
@@ -214,6 +232,10 @@ export default function App() {
     setExpression("");
     setIsResult(false);
     setCurrentOp("");
+    setStepCount(1);
+    setMemory(0);
+    setGrandTotal(0);
+    setShowGT(false);
   };
 
   const downloadReceipt = async () => {
@@ -336,7 +358,12 @@ export default function App() {
         {/* LCD */}
         <View style={s.lcdBezel}>
           <View style={s.lcdScreen}>
-  
+            <Text style={s.lcdStep}>
+              {stepCount.toString().padStart(2, "0")}
+            </Text>
+            {showGT && <Text style={s.lcdGT}>GT</Text>}
+            {memory !== 0 && <Text style={s.lcdMem}>M={memory}</Text>}
+
             {/* Operator indicator — shown top-right when operator is active */}
             {currentOp ? <Text style={s.lcdOp}>{currentOp}</Text> : null}
             {/* Main number — hide the bare operator symbol, show the last number instead */}
@@ -374,28 +401,28 @@ export default function App() {
 
         {/* CE | Settings | ON/AC row */}
         <View style={s.acRow}>
-  <Btn
-    label="Menu"
-    onPress={() => {}}
-    bg="#2a2a2a"
-    color="#aaa"
-    fz={20}
-  />
-  <Btn
-    label="CE"
-    onPress={() => press("AC")}
-    bg="#1e1e1e"
-    color="#11bcb0"
-    fz={16}
-  />
-  <Btn
-    label="ON / AC"
-    onPress={() => press("AC")}
-    bg="#00b894"
-    color="#fff"
-    fz={15}
-  />
-</View>
+          <Btn
+            label="Menu"
+            onPress={() => {}}
+            bg="#2a2a2a"
+            color="#aaa"
+            fz={20}
+          />
+          <Btn
+            label="CE"
+            onPress={() => press("AC")}
+            bg="#1e1e1e"
+            color="#11bcb0"
+            fz={16}
+          />
+          <Btn
+            label="ON / AC"
+            onPress={() => press("AC")}
+            bg="#00b894"
+            color="#fff"
+            fz={15}
+          />
+        </View>
 
         {/* ─── MAIN KEYPAD ───────────────────────────────────────
           Layout matches Citizen CT-512 + reference image 2:
@@ -671,6 +698,22 @@ const s = StyleSheet.create({
     right: 14,
     fontFamily: "SpaceGrotesk_500Medium",
     fontSize: 22,
+    color: "#2e4228",
+  },
+  lcdGT: {
+    position: "absolute",
+    top: 10,
+    left: 85,
+    fontFamily: "SpaceGrotesk_500Medium",
+    fontSize: 17,
+    color: "#2e4228",
+  },
+  lcdMem: {
+    position: "absolute",
+    top: 10,
+    left: 155,
+    fontFamily: "SpaceGrotesk_500Medium",
+    fontSize: 16,
     color: "#2e4228",
   },
   lcdNum: {
