@@ -601,7 +601,7 @@ const s = StyleSheet.create({
     borderRadius: 3,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    height: 185,
+    height: 150,
     justifyContent: "flex-end",
     alignItems: "flex-end",
     position: "relative",
