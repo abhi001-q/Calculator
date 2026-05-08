@@ -11,6 +11,8 @@ import {
   ScrollView,
   Modal,
   Alert,
+  Animated,
+  Easing,
 } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import * as FileSystem from "expo-file-system";
@@ -21,7 +23,9 @@ import {
 } from "@expo-google-fonts/space-grotesk";
 import { Inter_400Regular, Inter_700Bold } from "@expo-google-fonts/inter";
 
-const { height } = Dimensions.get("window");
+import { Feather } from "@expo/vector-icons";
+
+const { height, width } = Dimensions.get("window");
 const operators = ["+", "-", "×", "÷", "%"];
 
 export default function App() {
@@ -35,6 +39,9 @@ export default function App() {
   const [stepCount, setStepCount] = useState(1);
   const [grandTotal, setGrandTotal] = useState(0);
   const [showGT, setShowGT] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("Calculator");
+  const slideAnim = React.useRef(new Animated.Value(-width)).current;
 
   const [fontsLoaded] = useFonts({
     SpaceGrotesk_500Medium,
@@ -44,6 +51,45 @@ export default function App() {
   if (!fontsLoaded) return null;
 
   const endsWithOp = (v) => operators.includes(v.slice(-1));
+
+  const openSidebar = () => {
+    setIsSidebarOpen(true);
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 250,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeSidebar = () => {
+    Animated.timing(slideAnim, {
+      toValue: -width,
+      duration: 250,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start(() => setIsSidebarOpen(false));
+  };
+
+  const renderMenuItem = (label, iconName) => {
+    const isActive = activeTab === label;
+    return (
+      <TouchableOpacity
+        key={label}
+        style={[s.menuItem, isActive && s.menuItemActive]}
+        onPress={() => {
+          setActiveTab(label);
+          if (label !== "Calculator") {
+            Alert.alert("Coming Soon", `${label} feature will be available in the next update.`);
+          }
+          closeSidebar();
+        }}
+      >
+        <Feather name={iconName} size={18} color={isActive ? "#11bcb0" : "#888"} />
+        <Text style={[s.menuItemText, isActive && s.menuItemTextActive]}>{label}</Text>
+      </TouchableOpacity>
+    );
+  };
 
   const press = (value) => {
     // Increment step count on every key press except AC (which resets it)
@@ -298,6 +344,39 @@ export default function App() {
     <SafeAreaView style={s.safe}>
       <StatusBar style="light" />
 
+      {/* ── Sidebar Menu Modal ── */}
+      <Modal visible={isSidebarOpen} transparent={true} animationType="none" onRequestClose={closeSidebar}>
+        <View style={s.sidebarOverlay}>
+          <TouchableOpacity style={s.sidebarBg} activeOpacity={1} onPress={closeSidebar} />
+          <Animated.View style={[s.sidebarContainer, { transform: [{ translateX: slideAnim }] }]}>
+            <View style={s.sidebarHeader}>
+              <Text style={s.sidebarTitle}>Menu</Text>
+              <TouchableOpacity onPress={closeSidebar} style={s.sidebarCloseBtn}>
+                <Feather name="x" size={24} color="#888" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={s.sidebarScroll} contentContainerStyle={s.sidebarScrollContent}>
+              <Text style={s.sidebarSectionTitle}>Calculator</Text>
+              {renderMenuItem("Calculator", "cpu")}
+              {renderMenuItem("History", "clock")}
+              {renderMenuItem("Cash Note Counter", "dollar-sign")}
+              {renderMenuItem("Amount to Words", "type")}
+              {renderMenuItem("Currency Converter", "refresh-cw")}
+              {renderMenuItem("Age Calculator", "calendar")}
+              {renderMenuItem("World Clock", "globe")}
+
+              <View style={s.sidebarDivider} />
+
+              <Text style={s.sidebarSectionTitle}>Tools</Text>
+              {renderMenuItem("Compass", "compass")}
+              {renderMenuItem("Notes", "file-text")}
+              {renderMenuItem("QR Code Scanner", "maximize")}
+              {renderMenuItem("Unit Converter", "sliders")}
+            </ScrollView>
+          </Animated.View>
+        </View>
+      </Modal>
+
       {/* ── History Modal (slide-up sheet) ── */}
       <Modal visible={historyVisible} animationType="slide" transparent>
         <View style={s.overlay}>
@@ -351,7 +430,12 @@ export default function App() {
       <View style={s.body}>
         {/* Brand bar */}
         <View style={s.brandBar}>
-          <Text style={s.brandName}>CITIZEN</Text>
+          <View style={s.brandBarLeft}>
+            <TouchableOpacity onPress={openSidebar} style={s.hamburgerBtn}>
+              <Feather name="menu" size={24} color="#11bcb0" />
+            </TouchableOpacity>
+            <Text style={s.brandName}>CITIZEN</Text>
+          </View>
           <Text style={s.brandMeta}>CT-512 · 112 STEPS CHECK</Text>
         </View>
 
@@ -654,6 +738,14 @@ const s = StyleSheet.create({
     paddingVertical: 5,
     backgroundColor: "#0d0d0d",
   },
+  brandBarLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  hamburgerBtn: {
+    marginRight: 12,
+    padding: 2,
+  },
   brandName: {
     fontFamily: "SpaceGrotesk_500Medium",
     fontSize: 17,
@@ -903,4 +995,90 @@ const s = StyleSheet.create({
   },
   fTxtRed: { fontFamily: "Inter_700Bold", color: "#e11d48", fontSize: 12 },
   fTxtW: { fontFamily: "Inter_700Bold", color: "#fff", fontSize: 12 },
+
+  // ── Sidebar Menu ──
+  sidebarOverlay: {
+    flex: 1,
+    flexDirection: "row",
+  },
+  sidebarBg: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  sidebarContainer: {
+    width: width * 0.75,
+    maxWidth: 320,
+    backgroundColor: "#161616",
+    height: "100%",
+    borderRightWidth: 1,
+    borderRightColor: "#252525",
+    shadowColor: "#000",
+    shadowOffset: { width: 5, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  sidebarHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: Platform.OS === "android" ? RNStatusBar.currentHeight + 20 : 50,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#222",
+  },
+  sidebarTitle: {
+    fontFamily: "SpaceGrotesk_500Medium",
+    fontSize: 22,
+    color: "#fff",
+    letterSpacing: 1,
+  },
+  sidebarCloseBtn: {
+    padding: 5,
+  },
+  sidebarScroll: {
+    flex: 1,
+  },
+  sidebarScrollContent: {
+    paddingVertical: 15,
+  },
+  sidebarSectionTitle: {
+    fontFamily: "Inter_700Bold",
+    fontSize: 11,
+    color: "#666",
+    textTransform: "uppercase",
+    letterSpacing: 2,
+    marginTop: 15,
+    marginBottom: 10,
+    paddingHorizontal: 20,
+  },
+  sidebarDivider: {
+    height: 1,
+    backgroundColor: "#222",
+    marginVertical: 10,
+    marginHorizontal: 20,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderLeftWidth: 3,
+    borderLeftColor: "transparent",
+  },
+  menuItemActive: {
+    backgroundColor: "rgba(17, 188, 176, 0.1)",
+    borderLeftColor: "#11bcb0",
+  },
+  menuItemText: {
+    fontFamily: "Inter_400Regular",
+    fontSize: 15,
+    color: "#ccc",
+    marginLeft: 15,
+  },
+  menuItemTextActive: {
+    fontFamily: "Inter_700Bold",
+    color: "#11bcb0",
+  },
 });
