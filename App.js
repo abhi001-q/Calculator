@@ -28,7 +28,10 @@ export default function App() {
   const [display, setDisplay] = useState("0");
   const [expression, setExpression] = useState("");
   const [isResult, setIsResult] = useState(false);
-  const [currentOp, setCurrentOp] = useState("");
+  const [memory, setMemory] = useState(0);
+  const [history, setHistory] = useState([]);
+  const [historyVisible, setHistoryVisible] = useState(false);
+  const [stepCount, setStepCount] = useState(0);
 
   const [fontsLoaded] = useFonts({
     SpaceGrotesk_500Medium,
@@ -333,7 +336,7 @@ export default function App() {
         {/* LCD */}
         <View style={s.lcdBezel}>
           <View style={s.lcdScreen}>
-            <Text style={s.lcdStep}>01</Text>
+  
             {/* Operator indicator — shown top-right when operator is active */}
             {currentOp ? <Text style={s.lcdOp}>{currentOp}</Text> : null}
             {/* Main number — hide the bare operator symbol, show the last number instead */}
