@@ -29,8 +29,6 @@ export default function App() {
   const [expression, setExpression] = useState("");
   const [isResult, setIsResult] = useState(false);
   const [currentOp, setCurrentOp] = useState("");
-  const [history, setHistory] = useState([]);
-  const [historyVisible, setHistoryVisible] = useState(false);
 
   const [fontsLoaded] = useFonts({
     SpaceGrotesk_500Medium,
@@ -65,19 +63,69 @@ export default function App() {
       }
       return;
     }
-    if (
-      [
-        "gt",
-        "mu",
-        "mrc",
-        "m_plus",
-        "m_minus",
-        "plusminus",
-        "sqrt",
-        "gst",
-      ].includes(value)
-    )
+    if (value === "mrc") {
+      // Memory Recall
+      const memStr = memory.toString();
+      setExpression(memStr);
+      setDisplay(memStr);
       return;
+    }
+    if (value === "m_plus") {
+      // Memory Add
+      const num = parseFloat(display);
+      setMemory((prev) => prev + (isNaN(num) ? 0 : num));
+      return;
+    }
+    if (value === "m_minus") {
+      // Memory Subtract
+      const num = parseFloat(display);
+      setMemory((prev) => prev - (isNaN(num) ? 0 : num));
+      return;
+    }
+    if (value === "plusminus") {
+      // Toggle sign
+      const toggled = display.startsWith("-") ? display.slice(1) : "-" + display;
+      setExpression(toggled);
+      setDisplay(toggled);
+      return;
+    }
+    if (value === "sqrt") {
+      const num = parseFloat(display);
+      if (num < 0) {
+        setDisplay("Error");
+        setExpression("");
+        return;
+      }
+      const res = Math.sqrt(num).toString();
+      setExpression(res);
+      setDisplay(res);
+      return;
+    }
+    if (value === "gt") {
+      // Grand Total (store current display in memory)
+      const num = parseFloat(display);
+      setMemory(isNaN(num) ? 0 : num);
+      return;
+    }
+    if (value === "mu") {
+      // Memory Multiply
+      const num = parseFloat(display);
+      setMemory((prev) => (isNaN(num) ? prev : prev * num));
+      return;
+    }
+    if (value === "gst") {
+      // GST tax calculation (apply 5% tax)
+      const num = parseFloat(display);
+      if (isNaN(num)) {
+        setDisplay("Error");
+        setExpression("");
+        return;
+      }
+      const taxed = (num * 1.05).toString();
+      setExpression(taxed);
+      setDisplay(taxed);
+      return;
+    }
     if (display.length >= 14 && !operators.includes(value)) return;
 
     if (isResult && !operators.includes(value)) {
